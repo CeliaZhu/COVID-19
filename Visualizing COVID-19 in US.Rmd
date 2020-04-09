@@ -46,13 +46,14 @@ getPalette <-  colorRampPalette(c("red", "yellow", "blue"), bias = 8)
 # Time series w/o color
 cum_plot <- ggplot(US_confirmed_clean, aes(x = Date, y = log(Cummulative_Cases)))+
 geom_line(alpha = 0.5, aes(group = State))+
-labs(title = "COVID-19 confirmed cases over time")
+labs(title = "COVID-19 confirmed cases over time (log scale)")
 
 # Time series w/ color
 ggplot(US_confirmed_clean, aes(x = Date, y = log(Cummulative_Cases), color = State))+
 geom_line(alpha = 0.5)+
 scale_color_manual(values = getPalette(palette_size)) +
-labs(title = "COVID-19 confirmed cases over time")
+labs(title = "COVID-19 confirmed cases over time")+
+theme(text=element_text(size=7))
 ```
 
 ## Map total number of cases in states
