@@ -1,0 +1,64 @@
+---
+title: "Visualizing COVID-19"
+author: "Xiling (Celia) Zhu"
+date: "4/8/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, error = FALSE)
+```
+
+```{r}
+pkg_list <- c("tidyverse", "ggplot2", "lubridate", "ggmap", "viridis", "RColorBrewer")
+lapply(pkg_list, require, character.only = TRUE)
+
+US_confirmed <- read_csv("csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_US.csv") 
+head(US_confirmed)
+```
+
+```{r}
+# Data cleaning
+US_confirmed_clean <- US_confirmed %>% 
+  select(-c(Country_Region, UID, iso2, code3, FIPS, Admin2, iso3)) %>%# # Less informative variables not selected
+  rename(Long = Long_) %>% 
+  gather(key = "Date", value, -c(Province_State, Lat, Long, Combined_Key)) %>% 
+  mutate(Date = mdy(Date)) %>% 
+  rename(Daily_Confirmed_Cases = value) %>% 
+  group_by(Province_State) %>% 
+  mutate(Cummulative_Cases = cumsum(Daily_Confirmed_Cases)) %>% 
+  mutate(Total_cases = sum(Daily_Confirmed_Cases))
+  
+head(US_confirmed_clean)
+```
+
+```{r}
+# Plot cummulative cases and total cases (on log scale)
+palette_size <- length(unique(US_confirmed_clean$Province_State))
+getPalette <-  colorRampPalette(c("red", "yellow", "blue"), bias = 8)
+
+# Time series w/o color
+ggplot(US_confirmed_clean, aes(x = Date, y = log(Cummulative_Cases), group = Province_State))+
+geom_line(alpha = 0.5)+
+labs(title = "COVID-19 confirmed cases over time")
+
+# Time series w/ color
+ggplot(US_confirmed_clean, aes(x = Date, y = log(Cummulative_Cases), color = Province_State))+
+geom_line(alpha = 0.5)+
+scale_color_manual(values = getPalette(palette_size)) +
+labs(title = "COVID-19 confirmed cases over time")
+
+# Map total number of cases
+US <- get_map(location = "united states", zoom = 4, color = "bw")
+
+ggmap(US, darken = 0.5)+
+  scale_fill_viridis(option = 'plasma') +
+  stat_summary_2d(data = US_confirmed_clean, aes(x=Long, y=Lat, z = log(Total_cases)), 
+                  bins = 60,
+                  fun = mean,
+                  alpha=0.6)+
+   labs(x = "Longitude", y = "Latitude", fill = "Total number of cases (log scale)")
+  
+```
+
+
