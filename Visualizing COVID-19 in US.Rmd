@@ -9,6 +9,9 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, error = FALSE)
 ```
 
+## Load packages and datasets
+Datasets are from [Johns Hopkins University Center for System Science and Engineering] (https://github.com/CSSEGISandData/COVID-19)
+
 ```{r}
 pkg_list <- c("tidyverse", "ggplot2", "lubridate", "ggmap", "viridis", "RColorBrewer")
 lapply(pkg_list, require, character.only = TRUE)
@@ -17,38 +20,43 @@ US_confirmed <- read_csv("csse_covid_19_data/csse_covid_19_time_series/time_seri
 head(US_confirmed)
 ```
 
+## Clean the time-series data of confirmed cases in the United States.
 ```{r}
 # Data cleaning
 US_confirmed_clean <- US_confirmed %>% 
   select(-c(Country_Region, UID, iso2, code3, FIPS, Admin2, iso3)) %>%# # Less informative variables not selected
   rename(Long = Long_) %>% 
-  gather(key = "Date", value, -c(Province_State, Lat, Long, Combined_Key)) %>% 
+  rename(State = Province_State) %>% 
+  gather(key = "Date", value, -c(State, Lat, Long, Combined_Key)) %>% # Transform wide data into long data
   mutate(Date = mdy(Date)) %>% 
   rename(Daily_Confirmed_Cases = value) %>% 
-  group_by(Province_State) %>% 
+  group_by(State) %>% 
   mutate(Cummulative_Cases = cumsum(Daily_Confirmed_Cases)) %>% 
   mutate(Total_cases = sum(Daily_Confirmed_Cases))
   
 head(US_confirmed_clean)
 ```
 
+## Plot cummulative cases against date for each state
 ```{r}
 # Plot cummulative cases and total cases (on log scale)
-palette_size <- length(unique(US_confirmed_clean$Province_State))
+palette_size <- length(unique(US_confirmed_clean$State))
 getPalette <-  colorRampPalette(c("red", "yellow", "blue"), bias = 8)
 
 # Time series w/o color
-ggplot(US_confirmed_clean, aes(x = Date, y = log(Cummulative_Cases), group = Province_State))+
-geom_line(alpha = 0.5)+
+cum_plot <- ggplot(US_confirmed_clean, aes(x = Date, y = log(Cummulative_Cases)))+
+geom_line(alpha = 0.5, aes(group = State))+
 labs(title = "COVID-19 confirmed cases over time")
 
 # Time series w/ color
-ggplot(US_confirmed_clean, aes(x = Date, y = log(Cummulative_Cases), color = Province_State))+
+ggplot(US_confirmed_clean, aes(x = Date, y = log(Cummulative_Cases), color = State))+
 geom_line(alpha = 0.5)+
 scale_color_manual(values = getPalette(palette_size)) +
 labs(title = "COVID-19 confirmed cases over time")
+```
 
-# Map total number of cases
+## Map total number of cases in states
+```{r}
 US <- get_map(location = "united states", zoom = 4, color = "bw")
 
 ggmap(US, darken = 0.5)+
@@ -58,7 +66,24 @@ ggmap(US, darken = 0.5)+
                   fun = mean,
                   alpha=0.6)+
    labs(x = "Longitude", y = "Latitude", fill = "Total number of cases (log scale)")
-  
 ```
 
+## Annotate the line plot with events
+```{r}
+events <- tribble(
+  ~ date, ~ event,
+  "2020-03-11", "Pandemic declared",
+  "2020-03-16", "COVID-19 Guidelines issued", 
+  "2020-03-20", "IL and NY Stay-At-Home Orders",
+  "2020-03-29","Stay at Home Guidelines Extended"
+  )
+# Source: https://fraser.stlouisfed.org/timeline/covid-19-pandemic#49 
+
+events <- events %>% 
+  mutate(date = as.Date(date))
+
+cum_plot + 
+geom_vline(aes(xintercept = date), data = events,linetype = "dashed")+ 
+geom_text(aes(x=date, label=event),data=events, y = 11, color = "firebrick", angle = 45, text = element_text(size = 2))
+```
 
